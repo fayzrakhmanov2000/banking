@@ -1,1 +1,3 @@
-rootProject.name = 'banking'
+rootProject.name = 'safebox-rental'
+
+include 'application-service'

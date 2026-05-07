@@ -1,0 +1,88 @@
+stages:
+  - build
+  - test
+  - quality
+  - package
+  - deploy
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  IMAGE: $CI_REGISTRY_IMAGE/application-service:$CI_COMMIT_SHORT_SHA
+
+cache:
+  key: gradle-${CI_PROJECT_ID}
+  paths:
+    - .gradle/caches
+    - .gradle/wrapper
+
+build:
+  stage: build
+  image: gradle:8.5-jdk17
+  script:
+    - ./gradlew :application-service:assemble
+  artifacts:
+    paths:
+      - application-service/build/libs/*.jar
+    expire_in: 1 day
+
+test:
+  stage: test
+  image: gradle:8.5-jdk17
+  services:
+    - name: postgres:16
+      alias: postgres
+  variables:
+    POSTGRES_DB: safebox
+    POSTGRES_USER: safebox
+    POSTGRES_PASSWORD: safebox
+    SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/safebox
+  script:
+    - ./gradlew :application-service:test
+  artifacts:
+    when: always
+    reports:
+      junit: application-service/build/test-results/test/TEST-*.xml
+
+sonarqube:
+  stage: quality
+  image: gradle:8.5-jdk17
+  script:
+    - ./gradlew sonar -Dsonar.host.url=$SONAR_URL -Dsonar.token=$SONAR_TOKEN
+  only:
+    - merge_requests
+    - main
+
+package:
+  stage: package
+  image: docker:24
+  services:
+    - docker:24-dind
+  script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
+    - docker build -t $IMAGE -f application-service/Dockerfile application-service/
+    - docker push $IMAGE
+  only:
+    - main
+
+deploy-staging:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - kubectl --kubeconfig=$KUBECONFIG_STAGING set image deployment/application-service application-service=$IMAGE -n safebox
+    - kubectl --kubeconfig=$KUBECONFIG_STAGING rollout status deployment/application-service -n safebox --timeout=2m
+  environment:
+    name: staging
+  only:
+    - main
+
+deploy-prod:
+  stage: deploy
+  image: bitnami/kubectl:latest
+  script:
+    - kubectl --kubeconfig=$KUBECONFIG_PROD set image deployment/application-service application-service=$IMAGE -n safebox
+    - kubectl --kubeconfig=$KUBECONFIG_PROD rollout status deployment/application-service -n safebox --timeout=5m
+  environment:
+    name: production
+  when: manual
+  only:
+    - main

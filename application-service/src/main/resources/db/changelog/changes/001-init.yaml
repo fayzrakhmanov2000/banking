@@ -1,0 +1,153 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-applications
+      author: ildar
+      changes:
+        - createTable:
+            tableName: applications
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: client_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cell_id
+                  type: uuid
+              - column:
+                  name: status
+                  type: varchar(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rental_from
+                  type: date
+                  constraints:
+                    nullable: false
+              - column:
+                  name: rental_to
+                  type: date
+                  constraints:
+                    nullable: false
+              - column:
+                  name: price
+                  type: numeric(19, 2)
+              - column:
+                  name: version
+                  type: bigint
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp with time zone
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: applications
+            indexName: idx_applications_client_status
+            columns:
+              - column:
+                  name: client_id
+              - column:
+                  name: status
+
+  - changeSet:
+      id: 002-processed-events
+      author: ildar
+      changes:
+        - createTable:
+            tableName: processed_events
+            columns:
+              - column:
+                  name: event_id
+                  type: varchar(64)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: consumer_group
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processed_at
+                  type: timestamp with time zone
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 003-outbox-events
+      author: ildar
+      changes:
+        - createTable:
+            tableName: outbox_events
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: aggregate_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_type
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: topic
+                  type: varchar(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: varchar(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: retry_count
+                  type: int
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp with time zone
+                  defaultValueComputed: now()
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sent_at
+                  type: timestamp with time zone
+        - createIndex:
+            tableName: outbox_events
+            indexName: idx_outbox_pending
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: created_at
